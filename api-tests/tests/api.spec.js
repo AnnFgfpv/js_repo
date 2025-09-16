@@ -7,7 +7,7 @@ let token;
 test.describe('API-тесты для Restful-booker', () => {
   test.beforeAll(async ({ request }) => {
     // 1. Создание бронирования
-    const createResp = await request.post(`${baseURL}/booking`, {
+    const createResp = await request.post(`${baseURL}/booking`, { // Объект с даннами бронирования лучше вынести в отдельную переменную, например newBooking и передавать его в 11 строку
       data: {
         firstname: 'Ann',
         lastname: 'Ivanova',
@@ -40,7 +40,7 @@ test.describe('API-тесты для Restful-booker', () => {
     expect(resp.status()).toBe(200);
 
     const data = await resp.json();
-    expect(data.firstname).toBe('Ann');
+    expect(data.firstname).toBe('Ann'); // В строках 43-49 можно использовать один ассершн expect(data.booking).toMatchObject(newBooking);
     expect(data.lastname).toBe('Ivanova');
     expect(data.totalprice).toBe(150);
     expect(data.depositpaid).toBe(true);
@@ -71,7 +71,7 @@ test.describe('API-тесты для Restful-booker', () => {
 
     expect(resp.status()).toBe(200);
     const updated = await resp.json();
-    expect(updated.firstname).toBe('Anna');
+    expect(updated.firstname).toBe('Anna'); // Можно порефакторить аналогично предыдущему тесту
     expect(updated.lastname).toBe('Sidorova');
     expect(updated.totalprice).toBe(200);
     expect(updated.depositpaid).toBe(false);
