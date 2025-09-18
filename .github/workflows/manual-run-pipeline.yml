@@ -1,0 +1,44 @@
+name: Manual Test Run
+
+on:
+  workflow_dispatch: # Позволяет запускать workflow вручную из интерфейса GitHub
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Шаг 1: Клонирование репозитория
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Шаг 2: Установка Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0' 
+
+      # Шаг 3: Установка зависимостей
+      - name: Install dependencies
+        run: npm install
+
+      # Шаг 4: Установка браузеров Playwright
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      # Шаг 5: Запуск UI тестов
+      - name: Run UI tests
+        run: npm run tests:ui
+
+      # Шаг 6: Запуск API тестов
+      - name: Run API tests
+        run: npm run tests:api
+
+      # Шаг 7: Загрузка отчета
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
