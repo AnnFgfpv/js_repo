@@ -29,7 +29,7 @@ const updatedBooking = {
 };
 
 
-test.describe('API-тесты для Restful-booker', () => {
+test.describe('API-тесты для Restful-booker @api', () => {
   test.beforeAll(async ({ request }) => {
     // 1. Создание бронирования
     const createResp = await request.post(`${baseURL}/booking`, {
