@@ -12,7 +12,7 @@ export class InventoryPage {
     return this.title.textContent();
   }
 
-  async addItemToCart() {
+  async addMostExpensiveItemToCart() {
     await this.priceHighToLow.waitFor({ state: 'visible' });
     await this.priceHighToLow.selectOption('hilo'); // сортировка от дорогого к дешевому
     const firstItem = this.itemCards.first();

@@ -7,10 +7,10 @@ export class CheckoutStepOnePage {
     this.continueButton = page.locator('[data-test="continue"]');
   }
 
-  async fillUserInfo() {
-    await this.firstNameInput.fill('Test');
-    await this.lastNameInput.fill('User');
-    await this.postalCodeInput.fill('12345');
+  async fillUserInfo(firstNameInput, lastNameInput, postalCodeInput) {
+    await this.firstNameInput.fill(firstNameInput);
+    await this.lastNameInput.fill(lastNameInput);
+    await this.postalCodeInput.fill(postalCodeInput);
     await this.continueButton.click();
   }
 }
