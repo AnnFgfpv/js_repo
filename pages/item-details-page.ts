@@ -6,6 +6,7 @@ export class ItemDetailsPage {
     readonly itemName: Locator;
     readonly itemPrice: Locator;
     readonly itemDescription: Locator;
+    readonly itemTitle: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -14,6 +15,7 @@ export class ItemDetailsPage {
         this.itemName = page.locator('[data-test="inventory-item-name"]');
         this.itemPrice = page.locator('[data-test="inventory-item-price"]');
         this.itemDescription = page.locator('[data-test="inventory-item-desc"]');
+        this.itemTitle = page.locator('.inventory_details_name');
     }
 
     async addItemToCart(): Promise<void> {
@@ -34,6 +36,10 @@ export class ItemDetailsPage {
 
     async getItemDescription(): Promise<string> {
         return await this.itemDescription.textContent() || '';
+    }
+
+    async getItemTitle(): Promise<Locator> {
+        return this.itemTitle;
     }
 }
 

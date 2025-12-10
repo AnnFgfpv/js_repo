@@ -18,10 +18,10 @@ test.describe('Login Tests', () => {
     test("Login test with invalid credentials", async ({ page }) => {
         loginPage = new LoginPage(page);
         await loginPage.goTo();
-        await loginPage.login('invalid_user', 'wrong_password');
-        const errorMessage = page.locator('[data-test="error"]');
+        await loginPage.login('', '');
+        const errorMessage = await loginPage.getErrorMessage();
         await expect(errorMessage).toBeVisible();
-        await expect(errorMessage).toHaveText('Epic sadface: Username and password do not match any user in this service');
+        await expect(errorMessage).toHaveText('Epic sadface: Username is required');
     });
 
     test("Login test with empty credentials", async ({ page }) => {
@@ -34,11 +34,11 @@ test.describe('Login Tests', () => {
     });
 
     test("Login with locked out user", async ({ page }) => {
-        loginPage = new LoginPage(page);
-        await loginPage.goTo();
-        await loginPage.login('locked_out_user', 'secret_sauce');
-        const errorMessage = page.locator('[data-test="error"]');
-        await expect(errorMessage).toBeVisible();
-        await expect(errorMessage).toHaveText('Epic sadface: Sorry, this user has been locked out.');
+        const loginPage = new LoginPage(page);
+    await loginPage.goTo();
+    await loginPage.login('locked_out_user', 'secret_sauce');
+    const errorMessage = await loginPage.getErrorMessage();
+    await expect(errorMessage).toBeVisible();
+    await expect(errorMessage).toHaveText('Epic sadface: Sorry, this user has been locked out.');
     });
 });

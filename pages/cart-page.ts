@@ -5,6 +5,8 @@ export class CartPage {
     readonly checkoutButton: Locator;
     readonly continueShoppingButton: Locator;
     readonly removeButton: Locator;
+    readonly cartBadge: Locator;
+    readonly cartLink: Locator;
     
 
     constructor(page: Page) {
@@ -13,6 +15,9 @@ export class CartPage {
         this.checkoutButton = page.locator('[data-test="checkout"]');
         this.continueShoppingButton = page.locator('[data-test="continue-shopping"]');
         this.removeButton = page.locator('[data-test="remove-sauce-labs-backpack"]');
+        this.cartBadge = page.locator('.shopping_cart_badge');
+        this.cartLink = page.locator('.shopping_cart_link');
+        
     }
 
     async getCartItemCount(): Promise<number> {
@@ -29,5 +34,14 @@ export class CartPage {
 
     async removeItemFromCart(): Promise<void> {
         await this.removeButton.click();
+    }
+
+     async goToCart(): Promise<void> {
+        await this.cartLink.click();
+    }
+
+    async getCartBadgeCount(): Promise<number> {
+        const count = await this.cartBadge.textContent();
+        return count ? parseInt(count) : 0;
     }
 }
