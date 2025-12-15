@@ -296,7 +296,6 @@ test.describe('Titanic Auth Service - Token Parsing', () => {
     expect(isExpired).toBe(true);
     
     const payload = authService.parseJwtToken(expiredToken);
-    expect(payload?.exp).toBe(1516239022); // 2018-01-18
+    expect(payload?.exp).toBe(1516239022); 
   });
 });
-
