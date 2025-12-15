@@ -18,6 +18,30 @@ export interface TokenResponse {
   expires_in?: number;
 }
 
+export interface JwtPayload {
+  sub?: string;
+  username?: string;
+  email?: string;
+  exp?: number;
+  iat?: number;
+  role?: UserRole;
+  [key: string]: any;
+}
+
+export interface ParsedTokens {
+  raw: TokenResponse;
+  accessTokenPayload: JwtPayload | null;
+  refreshTokenPayload: JwtPayload | null;
+  isAccessTokenExpired: boolean;
+  isRefreshTokenExpired: boolean;
+  userInfo: {
+    id?: string;
+    username?: string;
+    email?: string;
+    role?: UserRole;
+  };
+}
+
 export interface User {
   username: string;
   role: UserRole;

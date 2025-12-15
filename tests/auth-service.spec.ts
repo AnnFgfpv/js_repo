@@ -1,157 +1,302 @@
-import { test, expect } from '@playwright/test';
-import { AuthApiService } from '../src/services/auth-api.service';
-import { TestUsers } from '../src/test-data/users';
+import { test, expect } from './fixtures/auth.fixture';
+import { UserFactory } from '../src/test-data/user-factory';
 
-test.describe('Titanic Auth Service', () => {
-  let authService: AuthApiService;
-  let userTokens: Record<string, any> = {}; 
-  test.beforeEach(async () => {
-    authService = new AuthApiService();
-    userTokens = {}; 
+test.describe('Titanic Auth Service - Registration and Login', () => {
+  test('should register new user with random credentials', async ({ createTestUser }) => {
+    const { user, tokens, parsedTokens, userInfo } = await createTestUser();
     
-    const usersToRegister = [
-      TestUsers.USER_1,
-      TestUsers.USER_2,
-      TestUsers.USER_3,
-      TestUsers.SHORT_USERNAME,
-      TestUsers.LONG_USERNAME,
-      TestUsers.NO_EMAIL
-    ];
+    expect(tokens.access_token).toBeTruthy();
+    expect(tokens.token_type).toBe('bearer');
+    expect(tokens.refresh_token).toBeTruthy();
     
-    for (const user of usersToRegister) {
-      try {
-        const tokens = await authService.register(user);
-        userTokens[user.username] = {
-          tokens,
-          userData: user
-        };
-      } catch (error) {
+    expect(parsedTokens.accessTokenPayload).toBeTruthy();
+    expect(parsedTokens.refreshTokenPayload).toBeTruthy();
     
-        const tokens = await authService.login(user);
-        userTokens[user.username] = {
-          tokens,
-          userData: user
-        };
-      }
-    }
-  });
-
-  test('All users should be registered and can login', async () => {
+    expect(parsedTokens.isAccessTokenExpired).toBe(false);
+    expect(parsedTokens.isRefreshTokenExpired).toBe(false);
     
-    for (const user of Object.values(TestUsers)) {
-
-      if (user.username === 'admin') continue;
-      
-      const loginTokens = await authService.login(user);
-      expect(loginTokens.access_token).toBeTruthy();
-      expect(loginTokens.token_type).toBe('bearer');
-    }
+    expect(userInfo.username).toBe(user.username);
+    expect(userInfo.role).toBe('user'); 
   });
 
-  test('Get current user info for each registered user', async () => {
-    for (const [username, data] of Object.entries(userTokens)) {
-      const userInfo = await authService.getCurrentUser(data.tokens.access_token);
-      
-      expect(userInfo.username).toBe(username);
-      expect(userInfo.role).toBe('user'); 
-      
-      if (data.userData.email) {
-        expect(userInfo.email).toBe(data.userData.email);
-      }
-    }
+  test('should login with registered user credentials', async ({ authService, createTestUser }) => {
+    const { user } = await createTestUser();
+    
+    const loginTokens = await authService.login(user);
+    const parsedLoginTokens = authService.mapTokensToObject(loginTokens);
+    
+    expect(loginTokens.access_token).toBeTruthy();
+    expect(parsedLoginTokens.isAccessTokenExpired).toBe(false);
   });
 
-  test('Refresh token works for each user', async () => {
-    for (const [username, data] of Object.entries(userTokens)) {
-      const refreshedTokens = await authService.refreshToken(data.tokens.refresh_token);
-      
-      expect(refreshedTokens.access_token).toBeTruthy();
-      expect(refreshedTokens.refresh_token).toBeTruthy();
-      
-      userTokens[username].tokens = refreshedTokens;
-    }
-  });
-
-  test('Login with wrong password should fail for each user', async () => {
-    for (const user of Object.values(TestUsers)) {
-      if (user.username === 'admin') continue;
-      
-      await expect(
-        authService.login({
-          username: user.username,
-          password: 'WRONG_PASSWORD_123'
-        })
-      ).rejects.toThrow();
-    }
-  });
-
-  test('Register duplicate username should fail', async () => {
+  test('should fail to login with wrong password', async ({ authService, createTestUser }) => {
+    const { user } = await createTestUser();
+    
     await expect(
-      authService.register(TestUsers.USER_1)
+      authService.login({
+        username: user.username,
+        password: 'WRONG_PASSWORD_' + Math.random().toString(36)
+      })
     ).rejects.toThrow();
   });
 
-  test('Different users have different tokens', async () => {
-    const user1Tokens = userTokens[TestUsers.USER_1.username].tokens;
-    const user2Tokens = userTokens[TestUsers.USER_2.username].tokens;
-    
-    expect(user1Tokens.access_token).not.toBe(user2Tokens.access_token);
-    expect(user1Tokens.refresh_token).not.toBe(user2Tokens.refresh_token);
-  });
-
-  test('Logout invalidates refresh token for specific user', async () => {
-    const username = TestUsers.USER_1.username;
-    const userData = userTokens[username];
-    
-    await authService.logout(
-      userData.tokens.refresh_token,
-      userData.tokens.access_token
-    );
+  test('should fail to register duplicate username', async ({ authService, createTestUser }) => {
+    const { user } = await createTestUser();
     
     await expect(
-      authService.refreshToken(userData.tokens.refresh_token)
-    ).rejects.toThrow();
-    
-    const user2Data = userTokens[TestUsers.USER_2.username];
-    const refreshed = await authService.refreshToken(user2Data.tokens.refresh_token);
-    expect(refreshed.access_token).toBeTruthy();
+      authService.register(user)
+    ).rejects.toThrow(/already exists/);
   });
 
-  test('User without email - check registration', async () => {
-    const noEmailUser = userTokens[TestUsers.NO_EMAIL.username];
+  test('different users should have different tokens', async ({ createMultipleUsers }) => {
+    const users = await createMultipleUsers(2);
     
-    const userInfo = await authService.getCurrentUser(noEmailUser.tokens.access_token);
+    const [user1, user2] = users;
     
-    expect(userInfo.username).toBe(TestUsers.NO_EMAIL.username);
+    expect(user1.tokens.access_token).not.toBe(user2.tokens.access_token);
+    expect(user1.tokens.refresh_token).not.toBe(user2.tokens.refresh_token);
+    
+    expect(user1.userInfo.username).toBe(user1.user.username);
+    expect(user2.userInfo.username).toBe(user2.user.username);
+  });
+});
+
+test.describe('Titanic Auth Service - User Operations', () => {
+  test('should get current user info for registered user', async ({ createTestUser }) => {
+    const { user, tokens, userInfo } = await createTestUser();
+    
+    expect(userInfo.username).toBe(user.username);
+    expect(userInfo.role).toBe('user');
+    
+    if (user.email) {
+      expect(userInfo.email).toBe(user.email);
+    } else {
+      expect(userInfo.email === null || userInfo.email === undefined).toBe(true);
+    }
+  });
+
+  test('should work with user without email', async ({ authService }) => {
+    const user = UserFactory.createUserWithoutEmail();
+    const tokens = await authService.register(user);
+    const userInfo = await authService.getCurrentUser(tokens.access_token);
+    
+    expect(userInfo.username).toBe(user.username);
     expect(userInfo.email === null || userInfo.email === undefined).toBe(true);
   });
 
-  test('User with short username works correctly', async () => {
-    const shortUser = userTokens[TestUsers.SHORT_USERNAME.username];
+  test('should work with valid username lengths', async ({ authService }) => {
     
-    const userInfo = await authService.getCurrentUser(shortUser.tokens.access_token);
-    expect(userInfo.username).toBe(TestUsers.SHORT_USERNAME.username);
-    expect(userInfo.username.length).toBe(3);
-  });
-
-  test('User with long username works correctly', async () => {
-    const longUser = userTokens[TestUsers.LONG_USERNAME.username];
+    const shortUser = UserFactory.createUser({
+      username: 'usr'
+    });
+    const shortTokens = await authService.register(shortUser);
+    expect(shortTokens.access_token).toBeTruthy();
     
-    const userInfo = await authService.getCurrentUser(longUser.tokens.access_token);
-    expect(userInfo.username).toBe(TestUsers.LONG_USERNAME.username);
-    expect(userInfo.username.length).toBeGreaterThan(10);
-  });
-
-  test('Try to login with admin (separate test)', async () => {
-    try {
-      const tokens = await authService.login(TestUsers.ADMIN);
-      expect(tokens.access_token).toBeTruthy();
-      
-      const userInfo = await authService.getCurrentUser(tokens.access_token);
-      expect(userInfo.role).toBe('admin');
-
-    } catch (error) {
-      console.log('Admin user does not exist in the system');
-    }
+    
+    const mediumUser = UserFactory.createUser({
+      username: 'username123'
+    });
+    const mediumTokens = await authService.register(mediumUser);
+    expect(mediumTokens.access_token).toBeTruthy();
+    
+    
+    const longUsername = 'a'.repeat(50);
+    const longUser = UserFactory.createUser({
+      username: longUsername
+    });
+    const longTokens = await authService.register(longUser);
+    expect(longTokens.access_token).toBeTruthy();
   });
 });
+
+test.describe('Titanic Auth Service - Token Operations', () => {
+  test('should refresh token successfully', async ({ createTestUser, authService }) => {
+    const { tokens } = await createTestUser();
+    
+    const refreshedTokens = await authService.refreshToken(tokens.refresh_token);
+    
+    expect(refreshedTokens.access_token).toBeTruthy();
+    expect(refreshedTokens.refresh_token).toBeTruthy();
+    
+    
+    expect(refreshedTokens.access_token).not.toBe(tokens.access_token);
+    
+    
+    const parsedRefreshedTokens = authService.mapTokensToObject(refreshedTokens);
+    expect(parsedRefreshedTokens.isAccessTokenExpired).toBe(false);
+  });
+
+  test('should fail to refresh with invalid token', async ({ authService }) => {
+    const invalidToken = 'invalid_refresh_token_' + Math.random().toString(36);
+    
+    await expect(
+      authService.refreshToken(invalidToken)
+    ).rejects.toThrow(/401|invalid|failed/i);
+  });
+
+  test('should validate active token', async ({ createTestUser, authService }) => {
+    const { tokens } = await createTestUser();
+    
+    const isValid = await authService.validateToken(tokens.access_token);
+    expect(isValid).toBe(true);
+  });
+
+  test('should parse JWT payload correctly', async ({ createTestUser, authService }) => {
+    const { tokens } = await createTestUser();
+    
+    const payload = authService.parseJwtToken(tokens.access_token);
+    
+    
+    expect(payload).toBeTruthy();
+    expect(payload?.sub || payload?.user_id).toBeTruthy(); 
+    expect(payload?.role).toBeTruthy();
+    expect(payload?.exp).toBeTruthy(); 
+    
+    
+    console.log('Access token payload:', payload);
+  });
+
+  test('should check user role from token', async ({ createTestUser, authService }) => {
+    const { tokens } = await createTestUser();
+    
+    const role = authService.getUserRoleFromToken(tokens.access_token);
+    expect(role).toBe('user'); 
+  });
+});
+
+test.describe('Titanic Auth Service - Logout', () => {
+  test('should logout successfully with access token', async ({ createTestUser, authService }) => {
+    const { tokens } = await createTestUser();
+    
+    await authService.logout(tokens.refresh_token, tokens.access_token);
+    
+    await expect(
+      authService.refreshToken(tokens.refresh_token)
+    ).rejects.toThrow(/401|invalid|failed/i);
+  });
+
+  test('logout should invalidate only specific user token', async ({ createMultipleUsers, authService }) => {
+    const users = await createMultipleUsers(2);
+    
+    const [userToLogout, userToStay] = [users[0], users[1]];
+    
+    await authService.logout(
+      userToLogout.tokens.refresh_token,
+      userToLogout.tokens.access_token
+    );
+    
+    await expect(
+      authService.refreshToken(userToLogout.tokens.refresh_token)
+    ).rejects.toThrow();
+    
+    const refreshedTokens = await authService.refreshToken(userToStay.tokens.refresh_token);
+    expect(refreshedTokens.access_token).toBeTruthy();
+  });
+});
+
+test.describe('Titanic Auth Service - Admin Features', () => {
+  test('first registered user should be admin', async ({ authService }) => {
+    const timestamp = Date.now();
+    const firstUser = {
+      username: `first_admin_${timestamp}`,
+      password: 'AdminPass123!',
+      email: `first_admin_${timestamp}@example.com`
+    };
+    
+    const tokens = await authService.register(firstUser);
+    const userInfo = await authService.getCurrentUser(tokens.access_token);
+    
+    expect(userInfo.role).toBe('admin');
+    
+    const roleFromToken = authService.getUserRoleFromToken(tokens.access_token);
+    expect(roleFromToken).toBe('admin');
+  });
+  
+  test.describe('Titanic Auth Service - Validation', () => {
+  test('should reject too short username (< 3)', async ({ authService }) => {
+    const invalidUser = {
+      username: 'ab', 
+      password: 'ValidPass123!',
+      email: 'test@example.com'
+    };
+    
+    await expect(
+      authService.register(invalidUser)
+    ).rejects.toThrow(/422|validation|failed/i);
+  });
+
+  test('should reject too short password (< 6)', async ({ authService }) => {
+    const invalidUser = {
+      username: 'validuser',
+      password: '12345', 
+      email: 'test@example.com'
+    };
+    
+    await expect(
+      authService.register(invalidUser)
+    ).rejects.toThrow(/422|validation|failed/i);
+  });
+
+  test('should accept valid usernames with allowed characters', async ({ authService }) => {
+  
+  const validUsernames = [
+    'user_name',
+    'user-name', 
+    'user123',
+    'user_name-123'
+  ];
+  
+  for (const username of validUsernames) {
+    
+    const uniqueUsername = `${username}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const user = {
+      username: uniqueUsername,
+      password: 'ValidPass123!',
+      email: `${uniqueUsername}@example.com`
+    };
+    
+    const tokens = await authService.register(user);
+    expect(tokens.access_token).toBeTruthy();
+    
+    const userInfo = await authService.getCurrentUser(tokens.access_token);
+    expect(userInfo.username).toBe(uniqueUsername);
+    
+    await authService.logout(tokens.refresh_token, tokens.access_token);
+    
+    await expect(
+      authService.refreshToken(tokens.refresh_token)
+    ).rejects.toThrow();
+  }
+});
+
+test.describe('Titanic Auth Service - Token Parsing', () => {
+  test('should correctly parse JWT token structure', async ({ createTestUser }) => {
+    const { tokens, parsedTokens } = await createTestUser();
+    
+    expect(tokens).toHaveProperty('access_token');
+    expect(tokens).toHaveProperty('refresh_token');
+    expect(tokens).toHaveProperty('token_type', 'bearer');
+    
+    expect(parsedTokens.raw).toEqual(tokens);
+    expect(parsedTokens.accessTokenPayload).toBeTruthy();
+    
+    expect(parsedTokens.accessTokenPayload?.role).toBeTruthy();
+    expect(parsedTokens.accessTokenPayload?.exp).toBeTruthy();
+    expect(parsedTokens.accessTokenPayload?.sub || parsedTokens.accessTokenPayload?.user_id).toBeTruthy();
+    
+   
+    expect(parsedTokens.refreshTokenPayload).toBeTruthy();
+  });
+
+  test('should detect token expiration', async ({ authService }) => {
+    
+    const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcl9pZCI6MTEsInJvbGUiOiJ1c2VyIiwiZXhwIjoxNTE2MjM5MDIyLCJ0eXBlIjoiYWNjZXNzIn0.kL0HrY5qR7hKq7q7q7q7q7q7q7q7q7q7q7q7q7q7q7';
+    
+    const isExpired = authService.isTokenExpired(expiredToken);
+    expect(isExpired).toBe(true);
+    
+    const payload = authService.parseJwtToken(expiredToken);
+    expect(payload?.exp).toBe(1516239022); // 2018-01-18
+  });
+});
+

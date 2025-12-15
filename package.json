@@ -3,14 +3,19 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": { "test:auth": "playwright test tests/auth-service.spec.ts",
-    "test:all": "playwright test"},
+  "scripts": {
+    "test:auth": "playwright test tests/auth-service.spec.ts",
+    "test:all": "playwright test"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@babel/preset-typescript": "^7.28.5",
     "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.1"
+    "@types/faker": "^5.5.9",
+    "@types/node": "^25.0.1",
+    "faker": "^5.5.3"
   }
 }
